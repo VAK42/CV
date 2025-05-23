@@ -3,7 +3,7 @@ import pandas as pd
 from src.config import VIDEO_SOURCE, MODEL_PATH, MOVEMENT_THRESHOLD
 from src.detector import load_model, detect_objects
 from src.processor import processor
-from src.utils import draw_bounding_boxes, log_movement
+from src.utils import draw_bounding_boxes, draw_skeleton, log_movement, classify_posture
 
 def main():
   model = load_model(MODEL_PATH)
@@ -16,8 +16,9 @@ def main():
       break
     results = detect_objects(model, frame)
     boxes = results[0].boxes
+    keypoints = results[0].keypoints
     if boxes is None or boxes.xyxy is None or len(boxes.xyxy) == 0:
-      cv2.imshow("Movement Detection", frame)
+      cv2.imshow("VAK", frame)
       if cv2.waitKey(1) & 0xFF == ord('q'):
         break
       continue
@@ -33,8 +34,10 @@ def main():
       if any(movements):
         frame_num = int(cap.get(cv2.CAP_PROP_POS_FRAMES))
         log_movement(movement_log, frame_num, centers)
-    frame_with_boxes = draw_bounding_boxes(frame, df)
-    cv2.imshow("VAK", frame_with_boxes)
+    postures = classify_posture(keypoints)
+    frame = draw_bounding_boxes(frame, df, postures)
+    frame = draw_skeleton(frame, keypoints)
+    cv2.imshow("VAK", frame)
     prev_centers = centers
     if cv2.waitKey(1) & 0xFF == ord('q'):
       break
