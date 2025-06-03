@@ -24,6 +24,8 @@ def main():
   try:
     model = load_model(MODEL_PATH)
     cap = cv2.VideoCapture(VIDEO_SOURCE)
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
     if not cap.isOpened():
       logging.error("Failed To Open Video Source!")
       return
