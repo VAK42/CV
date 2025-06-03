@@ -1,5 +1,6 @@
 import pandas as pd
 import logging
+import torch
 import time
 import cv2
 import os
@@ -16,6 +17,7 @@ logging.basicConfig(
 )
 
 def main():
+  print(torch.cuda.is_available())
   logging.info("Application Started!")
   cap = None
   out = None
