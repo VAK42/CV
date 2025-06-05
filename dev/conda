@@ -1,0 +1,4 @@
+conda create --prefix ./env python=3.13.2
+conda init
+conda activate ./env
+conda install -c conda-forge opencv ffmpeg ultralytics
