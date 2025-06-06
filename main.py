@@ -1,16 +1,27 @@
 import cv2
 import time
+import os
 from ultralytics import YOLO
-import torch
+from openvino import Core
 
 DRAW_KEYPOINTS = True
 DRAW_SKELETON = True
 DRAW_BOX = True
 DRAW_LABEL = True
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+core = Core()
+available_devices = core.available_devices
 model = YOLO("yolo11n-pose_openvino_model/")
-if device.type == "cuda":
-  model.half()
+if 'GPU' in available_devices:
+  if hasattr(model, 'model') and hasattr(model.model, 'ov_model'):
+    try:
+      compiled_model = core.compile_model(model.model.ov_model, 'GPU')
+      model.model.ov_model = compiled_model
+    except Exception as e:
+      print(e)
+else:
+  os.environ["OV_CPU_THREADS_NUM"] = str(os.cpu_count())
+  os.environ["OMP_NUM_THREADS"] = str(os.cpu_count())
+  os.environ["OPENBLAS_NUM_THREADS"] = str(os.cpu_count())
 cap = cv2.VideoCapture("0.mp4", cv2.CAP_FFMPEG)
 if not cap.isOpened():
   exit()
@@ -26,17 +37,20 @@ skeleton = [
   (5, 11), (6, 12),
   (11, 13), (13, 15),
   (12, 14), (14, 16),
-  (11, 12),
-  (5, 6)
+  (11, 12), (5, 6)
 ]
 prev_time = time.time()
 fps_count = 0.0
+frame_counter = 0
 while True:
   ret, frame = cap.read()
   if not ret or frame is None:
     break
+  frame_counter += 1
+  if frame_counter % 2 != 0:
+    continue
   sframe = cv2.resize(frame, (640, 360))
-  results = model.predict(sframe, imgsz=640, device=device, verbose=False, max_det=20)[0]
+  results = model.predict(sframe, imgsz=640, verbose=False, max_det=20, half=False)[0]
   if results.keypoints and results.keypoints.xy is not None and results.keypoints.conf is not None:
     for kp, conf, box, score in zip(results.keypoints.xy, results.keypoints.conf, results.boxes.xyxy,
                                     results.boxes.conf):
