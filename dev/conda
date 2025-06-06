@@ -1,5 +1,5 @@
 conda create --prefix ./env python=3.13.2
 conda init
 conda activate ./env
-conda install -c conda-forge opencv ffmpeg ultralytics
+conda install -c conda-forge opencv ultralytics openvino ffmpeg
 pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
