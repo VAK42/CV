@@ -1,5 +1,0 @@
-conda create -n CV python=3.13.2
-conda init
-conda activate CV
-conda install conda-forge::opencv
-conda install conda-forge::ultralytics
