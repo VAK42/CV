@@ -22,6 +22,7 @@ else:
   os.environ["OV_CPU_THREADS_NUM"] = str(os.cpu_count())
   os.environ["OMP_NUM_THREADS"] = str(os.cpu_count())
   os.environ["OPENBLAS_NUM_THREADS"] = str(os.cpu_count())
+cv2.setNumThreads(os.cpu_count())
 cap = cv2.VideoCapture("0.mp4", cv2.CAP_FFMPEG)
 if not cap.isOpened():
   exit()
@@ -41,14 +42,10 @@ skeleton = [
 ]
 prev_time = time.time()
 fps_count = 0.0
-frame_counter = 0
 while True:
   ret, frame = cap.read()
   if not ret or frame is None:
     break
-  frame_counter += 1
-  if frame_counter % 2 != 0:
-    continue
   sframe = cv2.resize(frame, (640, 360))
   results = model.predict(sframe, imgsz=640, verbose=False, max_det=20, half=False)[0]
   if results.keypoints and results.keypoints.xy is not None and results.keypoints.conf is not None:
@@ -74,7 +71,7 @@ while True:
       if DRAW_BOX:
         cv2.rectangle(sframe, (x1, y1), (x2, y2), color, 1)
       if DRAW_LABEL:
-        cv2.putText(sframe, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 1, cv2.LINE_AA)
+        cv2.putText(sframe, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 1, cv2.LINE_4)
   curr_time = time.time()
   elapsed = curr_time - prev_time
   fps_count = 1 / elapsed if elapsed > 0 else fps_count
