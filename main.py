@@ -1,6 +1,7 @@
 import cv2
 import time
 import os
+from concurrent.futures import ThreadPoolExecutor
 from ultralytics import YOLO
 from openvino import Core
 
@@ -40,6 +41,10 @@ skeleton = [
   (12, 14), (14, 16),
   (11, 12), (5, 6)
 ]
+executor = ThreadPoolExecutor(max_workers=4)
+futures = []
+last_results = None
+last_frame_for_draw = None
 prev_time = time.time()
 fps_count = 0.0
 while True:
@@ -47,21 +52,31 @@ while True:
   if not ret or frame is None:
     break
   sframe = cv2.resize(frame, (640, 360))
-  results = model.predict(sframe, imgsz=640, verbose=False, max_det=20, half=False)[0]
-  if results.keypoints and results.keypoints.xy is not None and results.keypoints.conf is not None:
-    for kp, conf, box, score in zip(results.keypoints.xy, results.keypoints.conf, results.boxes.xyxy,
-                                    results.boxes.conf):
+  last_frame_for_draw = sframe.copy()
+  if len(futures) < 1:
+    futures.append(
+      executor.submit(lambda img: model.predict(img, imgsz=640, verbose=False, max_det=60, half=False)[0], sframe))
+  for f in futures[:]:
+    if f.done():
+      try:
+        last_results = f.result()
+      except Exception as e:
+        print(e)
+      futures.remove(f)
+  if last_results and last_results.keypoints and last_results.keypoints.xy is not None and last_results.keypoints.conf is not None:
+    for kp, conf, box, score in zip(last_results.keypoints.xy, last_results.keypoints.conf, last_results.boxes.xyxy,
+                                    last_results.boxes.conf):
       if score < 0.4:
         continue
       if DRAW_KEYPOINTS:
         for x, y in kp:
-          cv2.circle(sframe, (int(x), int(y)), 2, (0, 255, 255), 1)
+          cv2.circle(last_frame_for_draw, (int(x), int(y)), 2, (0, 255, 255), 1)
       if DRAW_SKELETON:
         for i, j in skeleton:
           if conf[i] > 0.5 and conf[j] > 0.5:
             x1, y1 = map(int, kp[i])
             x2, y2 = map(int, kp[j])
-            cv2.line(sframe, (x1, y1), (x2, y2), (0, 128, 255), 1)
+            cv2.line(last_frame_for_draw, (x1, y1), (x2, y2), (0, 128, 255), 1)
       x1, y1, x2, y2 = map(int, box)
       w, h = x2 - x1, y2 - y1
       aspect_ratio = w / h if h > 0 else 0
@@ -69,16 +84,18 @@ while True:
       color = (0, 0, 255) if falling else (0, 255, 0)
       label = "Falling" if falling else "Normal"
       if DRAW_BOX:
-        cv2.rectangle(sframe, (x1, y1), (x2, y2), color, 1)
+        cv2.rectangle(last_frame_for_draw, (x1, y1), (x2, y2), color, 1)
       if DRAW_LABEL:
-        cv2.putText(sframe, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 1, cv2.LINE_4)
+        cv2.putText(last_frame_for_draw, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 1, cv2.LINE_4)
   curr_time = time.time()
   elapsed = curr_time - prev_time
   fps_count = 1 / elapsed if elapsed > 0 else fps_count
   prev_time = curr_time
-  cv2.putText(sframe, f"FPS: {fps_count:.2f}", (10, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
-  cv2.imshow("VAK", sframe)
+  if last_frame_for_draw is not None:
+    cv2.putText(last_frame_for_draw, f"FPS: {fps_count:.2f}", (10, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
+    cv2.imshow("VAK", last_frame_for_draw)
   if cv2.waitKey(1) & 0xFF == ord("q"):
     break
 cap.release()
 cv2.destroyAllWindows()
+executor.shutdown()
