@@ -215,9 +215,9 @@ while True:
         postFallFrames = int(postFallSec * fps)
 
       color = (0, 0, 255) if falling else (0, 255, 0)
-      if DRAW_BOX:
+      if drawBox:
         cv2.rectangle(lastFrame, (x1, y1), (x2, y2), color, 1)
-      if DRAW_LABEL:
+      if drawLabel:
         label = "Falling" if falling else "Normal"
         cv2.putText(lastFrame, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 1)
 
